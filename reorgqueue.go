@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"sync"
 	"time"
 
@@ -168,15 +169,15 @@ func DefaultConfig() Config {
 
 // Block represents a blockchain block with associated data
 type Block struct {
-	Number                   uint64
-	Hash                     common.Hash
-	Parent                   common.Hash
-	Block                    []byte
-	Receipts                 []byte
-	CallTraces               []byte
-	PrestateTraces           []byte
-	Keccak256PreimageTraces  []byte
-	StateAccessTraces        []byte
+	Number                  uint64
+	Hash                    common.Hash
+	Parent                  common.Hash
+	Block                   []byte
+	Receipts                []byte
+	CallTraces              []byte
+	PrestateTraces          []byte
+	Keccak256PreimageTraces []byte
+	StateAccessTraces       []byte
 }
 
 // BlockMetadata holds lightweight block information for caching
@@ -388,8 +389,12 @@ func (rq *reorgQueue) addBlockWithBackoff(ctx context.Context, block Block) erro
 			return nil
 		}
 
-		// If it's not a "queue full" error, return immediately
-		if !errors.Is(err, ErrMaxBufferedReached) {
+		switch {
+		case errors.Is(err, ErrMaxBufferedReached):
+			// Retry
+		case strings.Contains(err.Error(), "database is locked"):
+			// Retry
+		default:
 			return err
 		}
 
@@ -635,8 +640,12 @@ func (rq *reorgQueue) addBlocksBatchWithBackoff(ctx context.Context, blocks []Bl
 			return nil
 		}
 
-		// If it's not a "queue full" error, return immediately
-		if !errors.Is(err, ErrMaxBufferedReached) {
+		switch {
+		case errors.Is(err, ErrMaxBufferedReached):
+			// Retry
+		case strings.Contains(err.Error(), "database is locked"):
+			// Retry
+		default:
 			return err
 		}
 
